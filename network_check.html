@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ネットワーク診断 Pro v3.1</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --card-bg: #111;
+            --text-main: #eee;
+            --accent: #00ffcc;
+            --accent-dim: rgba(0, 255, 204, 0.1);
+            --success: #00ff66;
+            --warning: #ffcc00;
+            --danger: #ff3333;
+            --info: #00ccff;
+        }
+
+        body {
+            font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif; /* 日本語フォント優先 */
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 15px var(--accent-dim);
+            margin-bottom: 5px;
+        }
+
+        .version {
+            text-align: center;
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .control-panel {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        button {
+            background: transparent;
+            color: var(--accent);
+            border: 2px solid var(--accent);
+            padding: 15px 60px;
+            font-size: 1.2em;
+            font-weight: bold;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 0 10px var(--accent-dim);
+        }
+
+        button:hover {
+            background: var(--accent);
+            color: #000;
+            box-shadow: 0 0 20px var(--accent);
+        }
+
+        button:disabled {
+            border-color: #555;
+            color: #555;
+            background: transparent;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border: 1px solid #333;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 4px; height: 100%;
+            background-color: var(--accent);
+            opacity: 0.5;
+        }
+
+        .card h2 {
+            margin-top: 0;
+            font-size: 1.1em;
+            color: var(--accent);
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        /* IP Info Styles */
+        .ip-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #222;
+            padding-bottom: 5px;
+        }
+        .ip-label { color: #888; }
+        .ip-val { font-weight: bold; }
+        .v4 { color: var(--warning); }
+        .v6 { color: var(--info); }
+
+        /* Speed Test Styles */
+        .speed-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .speed-box small { display: block; color: #666; font-size: 0.7em; }
+        .speed-box span { font-size: 1.4em; font-weight: bold; }
+        .speed-main { 
+            text-align: center; 
+            font-size: 2.5em; 
+            margin: 10px 0; 
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255,255,255,0.2);
+        }
+        
+        .progress-bg {
+            background: #222;
+            height: 4px;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .progress-bar {
+            background: var(--accent);
+            height: 100%;
+            width: 0%;
+            transition: width 0.2s linear;
+        }
+
+        /* Service List Styles */
+        .service-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px dashed #333;
+            font-size: 0.9em;
+        }
+        .service-name { display: flex; align-items: center; gap: 8px; }
+        .service-stat { text-align: right; }
+        .stat-best { font-size: 1.1em; font-weight: bold; color: var(--accent); }
+        .stat-detail { font-size: 0.7em; color: #666; }
+
+        /* Log Area */
+        #logArea {
+            margin-top: 30px;
+            background-color: #000;
+            color: #0f0;
+            border: 1px solid #333;
+            padding: 10px;
+            height: 250px;
+            overflow-y: auto;
+            font-size: 0.75em;
+            white-space: pre-wrap;
+            line-height: 1.2;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        .log-time { color: #555; margin-right: 10px; }
+        .log-info { color: #aaa; }
+        .log-succ { color: var(--success); }
+        .log-warn { color: var(--warning); }
+        .log-err { color: var(--danger); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>ネットワーク診断 Pro</h1>
+    <div class="version">v3.1 - マルチPing / IPv4・v6 / 30秒詳細速度解析</div>
+
+    <div class="control-panel">
+        <button id="startBtn" onclick="runDiagnostics()">診断開始</button>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h2>IP接続情報 (IPv4 / IPv6)</h2>
+            <div class="ip-row">
+                <span class="ip-label">IPv4接続:</span>
+                <span id="ipv4-status" class="ip-val v4">待機中...</span>
+            </div>
+            <div class="ip-row">
+                <span class="ip-label">IPv4 Addr:</span>
+                <span id="ipv4-addr" class="ip-val">-</span>
+            </div>
+            <div style="height:10px;"></div>
+            <div class="ip-row">
+                <span class="ip-label">IPv6接続:</span>
+                <span id="ipv6-status" class="ip-val v6">待機中...</span>
+            </div>
+            <div class="ip-row">
+                <span class="ip-label">IPv6 Addr:</span>
+                <span id="ipv6-addr" class="ip-val">-</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>ダウンロード速度解析 (30秒間耐久)</h2>
+            <div class="speed-main" id="speed-current">0.0 <span style="font-size:0.4em">Mbps</span></div>
+            
+            <div class="speed-grid">
+                <div class="speed-box">
+                    <small>最高 (MAX)</small>
+                    <span id="speed-max" style="color:var(--success)">-</span>
+                </div>
+                <div class="speed-box">
+                    <small>平均 (AVG)</small>
+                    <span id="speed-avg" style="color:var(--info)">-</span>
+                </div>
+                <div class="speed-box">
+                    <small>最低 (MIN)</small>
+                    <span id="speed-min" style="color:var(--danger)">-</span>
+                </div>
+            </div>
+            <div style="font-size:0.75em; color:#666; text-align:center;">
+                ※開始直後3秒間(ウォームアップ)は集計から除外
+            </div>
+            <div class="progress-bg"><div id="speed-bar" class="progress-bar"></div></div>
+        </div>
+
+        <div class="card" style="grid-column: 1 / -1;">
+            <h2>サービス応答速度 (10回中ベスト値)</h2>
+            <div id="services-list">
+                </div>
+        </div>
+    </div>
+
+    <div id="logArea">システム準備完了。待機中...</div>
+</div>
+
+<script>
+    const logArea = document.getElementById('logArea');
+    const startBtn = document.getElementById('startBtn');
+
+    // ------------------------------------------
+    // Logging System
+    // ------------------------------------------
+    function log(msg, type = 'info') {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('ja-JP', { hour12: false }) + '.' + String(now.getMilliseconds()).padStart(3, '0');
+        
+        const span = document.createElement('div');
+        let colorClass = 'log-info';
+        if(type === 'success') colorClass = 'log-succ';
+        if(type === 'warning') colorClass = 'log-warn';
+        if(type === 'error') colorClass = 'log-err';
+
+        span.innerHTML = `<span class="log-time">[${timeStr}]</span> <span class="${colorClass}">${msg}</span>`;
+        logArea.appendChild(span);
+        logArea.scrollTop = logArea.scrollHeight;
+    }
+
+    // ------------------------------------------
+    // Configuration
+    // ------------------------------------------
+    const services = [
+        { name: "Google", url: "https://www.google.com/favicon.ico", icon: "G" },
+        { name: "Cloudflare", url: "https://www.cloudflare.com/favicon.ico", icon: "C" },
+        { name: "YouTube", url: "https://www.youtube.com/favicon.ico", icon: "Y" },
+        { name: "LINE (CDN)", url: "https://d.line-scdn.net/n/line_me/1715243423714/img/brand/logo_circle_en.png", icon: "L" },
+        { name: "X (Twitter)", url: "https://abs.twimg.com/favicons/twitter.ico", icon: "X" },
+        { name: "Instagram", url: "https://www.instagram.com/static/images/ico/favicon.ico/36b3ee2d91ed.ico", icon: "I" },
+        { name: "Netflix", url: "https://assets.nflxext.com/us/ffe/siteui/common/icons/nficon2016.ico", icon: "N" }
+    ];
+
+    // ------------------------------------------
+    // Main Workflow
+    // ------------------------------------------
+    async function runDiagnostics() {
+        startBtn.disabled = true;
+        startBtn.textContent = "診断中...";
+        logArea.innerHTML = "";
+        log("診断を開始します...", "info");
+
+        // Reset UI
+        resetUI();
+
+        try {
+            // 1. IP Check (Parallel)
+            await checkIPStack();
+
+            // 2. Service Ping (Best of 10)
+            await checkServicesBestOf10();
+
+            // 3. Speed Test (Deep Analysis)
+            await checkSpeedDeep();
+
+            log("すべての診断が完了しました。", "success");
+        } catch (e) {
+            log(`致命的なエラー: ${e.message}`, "error");
+        }
+
+        startBtn.disabled = false;
+        startBtn.textContent = "再診断";
+    }
+
+    function resetUI() {
+        document.getElementById('ipv4-status').textContent = "確認中...";
+        document.getElementById('ipv4-addr').textContent = "-";
+        document.getElementById('ipv6-status').textContent = "確認中...";
+        document.getElementById('ipv6-addr').textContent = "-";
+        
+        document.getElementById('speed-current').innerHTML = '0.0 <span style="font-size:0.4em">Mbps</span>';
+        document.getElementById('speed-max').textContent = "-";
+        document.getElementById('speed-avg').textContent = "-";
+        document.getElementById('speed-min').textContent = "-";
+        document.getElementById('speed-bar').style.width = "0%";
+
+        const list = document.getElementById('services-list');
+        list.innerHTML = '';
+        services.forEach((s, i) => {
+            list.innerHTML += `
+                <div class="service-item" id="srv-row-${i}">
+                    <div class="service-name"><b>[${s.icon}]</b> ${s.name}</div>
+                    <div class="service-stat">
+                        <div class="stat-best" id="srv-best-${i}">待機中</div>
+                        <div class="stat-detail" id="srv-detail-${i}">0/10 試行</div>
+                    </div>
+                </div>`;
+        });
+    }
+
+    // ------------------------------------------
+    // 1. Dual Stack IP Check
+    // ------------------------------------------
+    async function checkIPStack() {
+        log("IPスタック(v4/v6)の接続性を確認中...");
+        
+        // IPv4 Check
+        const p4 = fetch('https://api4.ipify.org?format=json')
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('ipv4-status').textContent = "接続OK";
+                document.getElementById('ipv4-status').style.color = "var(--success)";
+                document.getElementById('ipv4-addr').textContent = data.ip;
+                log(`IPv4接続確認: ${data.ip}`, "success");
+            })
+            .catch(e => {
+                document.getElementById('ipv4-status').textContent = "接続不可";
+                document.getElementById('ipv4-status').style.color = "#555";
+                log(`IPv4接続失敗: ${e.message}`, "warning");
+            });
+
+        // IPv6 Check
+        const p6 = fetch('https://api64.ipify.org?format=json')
+            .then(res => res.json())
+            .then(data => {
+                if(data.ip.includes(':')) {
+                    document.getElementById('ipv6-status').textContent = "接続OK";
+                    document.getElementById('ipv6-status').style.color = "var(--success)";
+                    document.getElementById('ipv6-addr').textContent = data.ip;
+                    log(`IPv6接続確認: ${data.ip}`, "success");
+                } else {
+                    document.getElementById('ipv6-status').textContent = "利用不可 (v4動作)";
+                    document.getElementById('ipv6-status').style.color = "#555";
+                    log(`IPv6利用不可 (IPv4で動作しています)`, "warning");
+                }
+            })
+            .catch(e => {
+                document.getElementById('ipv6-status').textContent = "接続不可";
+                document.getElementById('ipv6-status').style.color = "#555";
+                log(`IPv6接続失敗: ${e.message}`, "warning");
+            });
+
+        await Promise.allSettled([p4, p6]);
+    }
+
+    // ------------------------------------------
+    // 2. Service Ping (Best of 10)
+    // ------------------------------------------
+    async function checkServicesBestOf10() {
+        log("サービス応答速度計測 (各10回試行)...");
+
+        for (let i = 0; i < services.length; i++) {
+            const s = services[i];
+            const bestEl = document.getElementById(`srv-best-${i}`);
+            const detailEl = document.getElementById(`srv-detail-${i}`);
+            
+            log(`${s.name} への計測開始...`);
+            let times = [];
+
+            for(let count=1; count<=10; count++) {
+                const start = performance.now();
+                try {
+                    await fetchImage(s.url);
+                    const duration = Math.round(performance.now() - start);
+                    times.push(duration);
+                    log(`  - ${s.name} [${count}/10]: ${duration}ms`);
+                    
+                    const currentBest = Math.min(...times);
+                    bestEl.textContent = `${currentBest} ms`;
+                    detailEl.textContent = `${count}/10 完了 (最新: ${duration}ms)`;
+
+                    await new Promise(r => setTimeout(r, 100));
+
+                } catch(e) {
+                    log(`  - ${s.name} [${count}/10]: エラー`);
+                    times.push(9999);
+                }
+            }
+
+            const finalBest = Math.min(...times);
+            bestEl.textContent = `${finalBest} ms`;
+            bestEl.style.color = finalBest < 100 ? "var(--success)" : (finalBest < 500 ? "var(--warning)" : "var(--danger)");
+            detailEl.textContent = `完了 (平均: ${Math.round(times.reduce((a,b)=>a+b,0)/times.length)}ms)`;
+            log(`${s.name} 計測終了。ベスト値: ${finalBest}ms`, "success");
+        }
+    }
+
+    function fetchImage(url) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.referrerPolicy = "no-referrer";
+            const timeout = setTimeout(() => reject(new Error("Timeout")), 2000);
+            img.onload = () => { clearTimeout(timeout); resolve(); };
+            img.onerror = () => { clearTimeout(timeout); reject(new Error("Load Error")); };
+            img.src = `${url}?t=${Date.now()}_${Math.random()}`;
+        });
+    }
+
+    // ------------------------------------------
+    // 3. Deep Speed Analysis (Modified for full 30s)
+    // ------------------------------------------
+    async function checkSpeedDeep() {
+        log("高負荷速度テスト開始 (30秒間耐久 / 最初の3秒除外)");
+        
+        // Cloudflareの100MBファイル (何度でもリクエストする)
+        const BASE_URL = "https://speed.cloudflare.com/__down?bytes=104857600"; 
+        const MAX_TIME = 30000; // 30秒
+        const WARMUP_TIME = 3000; // 3秒
+
+        let totalBytes = 0;
+        let globalStartTime = performance.now();
+        let lastSampleTime = globalStartTime;
+        let lastSampleBytes = 0;
+
+        let maxSpeed = 0;
+        let minSpeed = Infinity;
+        let samples = []; 
+        
+        // UI Elements
+        const elCur = document.getElementById('speed-current');
+        const elMax = document.getElementById('speed-max');
+        const elAvg = document.getElementById('speed-avg');
+        const elMin = document.getElementById('speed-min');
+        const elBar = document.getElementById('speed-bar');
+
+        let isRunning = true;
+
+        try {
+            // 時間が来るまでループでダウンロードを繰り返す
+            while (isRunning) {
+                const now = performance.now();
+                if (now - globalStartTime >= MAX_TIME) break;
+
+                // 新規フェッチ (キャッシュ回避)
+                const controller = new AbortController();
+                const response = await fetch(BASE_URL + `&t=${now}`, { signal: controller.signal });
+                const reader = response.body.getReader();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    const currentTime = performance.now();
+                    const elapsedTime = currentTime - globalStartTime;
+
+                    // 30秒経過したら強制終了
+                    if (elapsedTime >= MAX_TIME) {
+                        isRunning = false;
+                        controller.abort();
+                        break;
+                    }
+
+                    if (done) {
+                        // 100MB読み終わったら次のループへ (ダウンロード継続)
+                        break; 
+                    }
+
+                    if (value) {
+                        totalBytes += value.length;
+
+                        // サンプリング (約0.5秒ごと)
+                        if (currentTime - lastSampleTime >= 500) {
+                            const chunkBytes = totalBytes - lastSampleBytes;
+                            const chunkTime = (currentTime - lastSampleTime) / 1000; // sec
+                            const speedBps = (chunkBytes * 8) / chunkTime;
+                            const speedMbps = speedBps / 1000000;
+
+                            // UI更新
+                            elCur.innerHTML = `${speedMbps.toFixed(1)} <span style="font-size:0.4em">Mbps</span>`;
+                            elBar.style.width = `${Math.min((elapsedTime / MAX_TIME)*100, 100)}%`;
+                            
+                            log(`瞬時速度: ${speedMbps.toFixed(1)} Mbps (残り: ${((MAX_TIME - elapsedTime)/1000).toFixed(1)}秒)`);
+
+                            // Warm-up除外して記録
+                            if (elapsedTime > WARMUP_TIME) {
+                                if (speedMbps > maxSpeed) maxSpeed = speedMbps;
+                                if (speedMbps < minSpeed) minSpeed = speedMbps;
+                                samples.push(speedMbps);
+
+                                elMax.textContent = maxSpeed.toFixed(1);
+                                elMin.textContent = minSpeed === Infinity ? "-" : minSpeed.toFixed(1);
+                                const currentAvg = samples.reduce((a,b)=>a+b,0) / samples.length;
+                                elAvg.textContent = currentAvg.toFixed(1);
+                            } else {
+                                log("  -> [準備中] 集計除外期間");
+                            }
+
+                            lastSampleTime = currentTime;
+                            lastSampleBytes = totalBytes;
+                        }
+                    }
+                }
+            }
+
+        } catch (e) {
+            if (e.name !== 'AbortError') {
+                log(`速度テスト中にエラー: ${e.message}`, "error");
+            }
+        }
+
+        // 最終結果
+        if (samples.length > 0) {
+            const finalAvg = samples.reduce((a,b)=>a+b,0) / samples.length;
+            elAvg.textContent = finalAvg.toFixed(2);
+            elMax.textContent = maxSpeed.toFixed(2);
+            elMin.textContent = minSpeed.toFixed(2);
+            elCur.innerHTML = `完了 <span style="font-size:0.4em">Done</span>`;
+            log(`計測終了。平均: ${finalAvg.toFixed(2)}Mbps, 最高: ${maxSpeed.toFixed(2)}Mbps, 最低: ${minSpeed.toFixed(2)}Mbps`, "success");
+        } else {
+            log("計測時間が短すぎたため、統計が取れませんでした。", "warning");
+        }
+        
+        elBar.style.width = "100%";
+        elBar.style.backgroundColor = "var(--success)";
+    }
+</script>
+</body>
+</html>
